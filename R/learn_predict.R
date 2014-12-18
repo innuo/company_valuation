@@ -10,7 +10,7 @@ learn.model <- function(train.data){
   yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=50, mtry=5))-1
   
   print(paste("rmse = ", rmse(train.y, yhat1), ", MAPE = ", mape(train.y+1, yhat1)))
-  print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat1)))
+  print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))
   
   plot(train.y, yhat1, log="xy", main="no transformation")
   abline(0, 1, col="red")
@@ -18,7 +18,6 @@ learn.model <- function(train.data){
   plot(train.y, yhat2, log="xy", main="target log transformed")
   abline(0, 1, col="blue")
   
-  browser()
 }
 
 
