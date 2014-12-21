@@ -42,6 +42,7 @@ predict.valuation <- function(model, test.index){
   test.id <- model$test.ids[test.index]
   test.feature.vector <- model$test.x[test.index,]
   pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE)
+  #pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE, predict.all=T)
   nodes <- attr(pp, "nodes")
   test.nodes <-  nodes[1,]
   train.nodes <- nodes[-1,]
@@ -49,7 +50,7 @@ predict.valuation <- function(model, test.index){
   individual.preds <- c()
   for(i in 1:ncol(train.nodes)){
     tree.neighbors <- which(train.nodes[,i] == test.nodes[i])
-    tree.preds <- mean(log(model$train.y[tree.neighbors]) + 1)
+    tree.preds <- mean(log(model$train.y[tree.neighbors] + 1))
     individual.preds <- c(individual.preds, tree.preds)
     neighbor.inds <- c(neighbor.inds, tree.neighbors)
   }
@@ -58,8 +59,7 @@ predict.valuation <- function(model, test.index){
   mean.prediction <- exp(mean(individual.preds))-1
   median.prediction <- exp(median(individual.preds))-1
   range.5.95 <- exp(quantile(individual.preds, probs = c(0.05, 0.95)))-1
-  
-  browser()
+    
   neighbor.df <-  my.table(neighbor.inds)
   neighbor.df <- subset(neighbor.df, freq > min(max(freq)/4, 3))
   
