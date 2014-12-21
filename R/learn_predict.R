@@ -41,29 +41,54 @@ learn.model <- function(train.data, test.data){
 predict.valuation <- function(model, test.index){
   test.id <- model$test.ids[test.index]
   test.feature.vector <- model$test.x[test.index,]
-  nodes <- attr(predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE), "nodes")
+  pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE)
+  nodes <- attr(pp, "nodes")
   test.nodes <-  nodes[1,]
   train.nodes <- nodes[-1,]
   neighbor.inds <-  c()
+  individual.preds <- c()
   for(i in 1:ncol(train.nodes)){
-    neighbor.inds <- c(neighbor.inds, which(train.nodes[,i] == test.nodes[i]))
+    tree.neighbors <- which(train.nodes[,i] == test.nodes[i])
+    tree.preds <- mean(log(model$train.y[tree.neighbors]) + 1)
+    individual.preds <- c(individual.preds, tree.preds)
+    neighbor.inds <- c(neighbor.inds, tree.neighbors)
   }
   
+  
+  mean.prediction <- exp(mean(individual.preds))-1
+  median.prediction <- exp(median(individual.preds))-1
+  range.5.95 <- exp(quantile(individual.preds, probs = c(0.05, 0.95)))-1
+  
+  browser()
   neighbor.df <-  my.table(neighbor.inds)
   neighbor.df <- subset(neighbor.df, freq > min(max(freq)/4, 3))
   
   neighbor.ids <- model$train.ids[neighbor.df$ids]
   neighbor.similarities <-  neighbor.df$freq/ncol(nodes)
   
+  return(list(value = model$test.y[test.index], mean.prediction=mean.prediction,
+              median.prediction=median.prediction, range.5.95=range.5.95,
+              neighbor.ids = neighbor.ids, neighbor.similarities=neighbor.similarities,
+              neighbor.features = model$train.x[neighbor.df$ids,],
+              neighbor.features.na = model$train.x[neighbor.df$ids,],
+              neighbor.values=model$train.y[neighbor.df$ids], 
+              neighbor.predictions=model$train.y.cv[neighbor.df$ids])) 
+          
   
   
 }
+
+
+
+
 
 my.table <- function(vec){
   tt <- tabulate(vec)
   res <- data.frame(ids=which(tt >0), freq=tt[tt >0])
   
 }
+
+
 
 crossvalidate <- function(X, Y, num.folds, train.fun, predict.fun=predict, ...){
   n <- nrow(X)
