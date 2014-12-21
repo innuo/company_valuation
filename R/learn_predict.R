@@ -1,13 +1,25 @@
 library(randomForest)
 
-learn.model <- function(train.data){
-  ids <- train.data$ids
-  train.x <- train.data$data
+learn.model <- function(train.data, test.data){
+  train.ids <- train.data$ids
+  test.ids <- test.data$ids
+
+  train.x.na <- train.data$data
+  test.x.na <- test.data$data
+  
+  n.train <- nrow(train.x.na)
+  n.test <-  nrow(test.x.na)
+  
   train.y <- train.data$target
-  train.x <- rfImpute(train.x, train.y, iter=2, ntree=10)
+  test.y <- test.data$target
+  
+  x.filled <- rfImpute(rbind(train.x.na, test.x.na), c(train.y, test.y), iter=2, ntree=10) #impute missing
+  
+  train.x <- x.filled[1:n.train,]
+  test.x <- x.filled[(n.train+1):nrow(x.filled),]
   
   yhat1 <- crossvalidate(train.x, train.y, num.folds = 5, train.fun=randomForest, ntree=50, mtry=5)
-  yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=50, mtry=5))-1
+  yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=100, mtry=5))-1
   
   print(paste("rmse = ", rmse(train.y, yhat1), ", MAPE = ", mape(train.y+1, yhat1)))
   print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))
@@ -18,8 +30,40 @@ learn.model <- function(train.data){
   plot(train.y, yhat2, log="xy", main="target log transformed")
   abline(0, 1, col="blue")
   
+  valuation.model <- list(train.ids=train.ids, train.x.na = train.x.na,
+                          train.x=train.x, train.y=train.y, train.y.cv = yhat2,
+                          test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
+  valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
+  valuation.model
+ 
 }
 
+predict.valuation <- function(model, test.index){
+  test.id <- model$test.ids[test.index]
+  test.feature.vector <- model$test.x[test.index,]
+  nodes <- attr(predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE), "nodes")
+  test.nodes <-  nodes[1,]
+  train.nodes <- nodes[-1,]
+  neighbor.inds <-  c()
+  for(i in 1:ncol(train.nodes)){
+    neighbor.inds <- c(neighbor.inds, which(train.nodes[,i] == test.nodes[i]))
+  }
+  
+  neighbor.df <-  my.table(neighbor.inds)
+  neighbor.df <- subset(neighbor.df, freq > min(max(freq)/4, 3))
+  
+  neighbor.ids <- model$train.ids[neighbor.df$ids]
+  neighbor.similarities <-  neighbor.df$freq/ncol(nodes)
+  
+  
+  
+}
+
+my.table <- function(vec){
+  tt <- tabulate(vec)
+  res <- data.frame(ids=which(tt >0), freq=tt[tt >0])
+  
+}
 
 crossvalidate <- function(X, Y, num.folds, train.fun, predict.fun=predict, ...){
   n <- nrow(X)
