@@ -10,13 +10,15 @@ learn.model <- function(train.data, test.data){
   n.train <- nrow(train.x.na)
   n.test <-  nrow(test.x.na)
   
+  c.train <- ncol(train.x.na)
+  
   train.y <- train.data$target
   test.y <- test.data$target
   
   x.filled <- rfImpute(rbind(train.x.na, test.x.na), c(train.y, test.y), iter=2, ntree=10) #impute missing
-  
-  train.x <- x.filled[1:n.train,]
-  test.x <- x.filled[(n.train+1):nrow(x.filled),]
+    
+  train.x <- x.filled[1:n.train,-1]
+  test.x <- x.filled[(n.train+1):nrow(x.filled),-1]
   
   yhat1 <- crossvalidate(train.x, train.y, num.folds = 5, train.fun=randomForest, ntree=50, mtry=5)
   yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=100, mtry=5))-1
