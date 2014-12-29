@@ -12,6 +12,7 @@ shinyUI(fluidPage(
     )),
     mainPanel(
       textOutput("text1"),
+      tableOutput("table_test"),
       tableOutput("table")
     )
   )
