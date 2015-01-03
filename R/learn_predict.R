@@ -1,13 +1,39 @@
 library(randomForest)
+library(quantregForest)
+
+train.all.models <- function(){
+  train.data <- readRDS("data/company_train_data.Rdata")
+  test.data <-  readRDS("data/company_test_data.Rdata")
+  learn.model(train.data, test.data, train.industry.ebitda.multiple, "model_ebidta")
+  learn.model(train.data, test.data, train.industry.rev.multiple, "model_revenues")
+  learn.model(train.data, test.data, train.using.random.forest, "model_rf")
+  
+}
 
 learn.model <- function(train.data, test.data, train.fun, model.name){
+  message("-----------------------")
+  message(paste0("Training model ", model.name))
   model <- train.fun(train.data, test.data)
   saveRDS(model, paste0("data/", model.name, ".Rdata"))
 
 }
 
 train.industry.rev.multiple <- function(train.data, test.data){
-  model <- train.industry.multiple(train.data, train.targets, "Revenues")
+  yhat1 <- crossvalidate(train.data$data, train.data$target, num.folds = 5, 
+                         train.fun=train.industry.multiple, predict.fun=predict.industry.multiple.df,
+                         base="Revenues")
+  print(paste("rmse = ", rmse(train.data$target, yhat1), ", MAPE = ", mape(train.data$target+1, yhat1)))
+  plot(train.data$target, yhat1, log="xy", main="Multiple of Revenues")
+  abline(0, 1, col="red") 
+  
+  valuation.model <- list(train.ids=train.data$ids, train.x = train.data$data,
+                          train.y=train.data$target, train.y.cv = yhat1,
+                          test.ids=test.data$ids, test.x = test.data$data,
+                          test.y=test.data$target)  
+  
+  valuation.model$model <- train.industry.multiple(train.data, train.data$target, "Revenues")
+  class(valuation.model) <- "industry.multiple"
+  valuation.model
 }
 
 train.industry.ebitda.multiple <- function(train.data, test.data){
@@ -18,13 +44,14 @@ train.industry.ebitda.multiple <- function(train.data, test.data){
   plot(train.data$target, yhat1, log="xy", main="Multiple of EBITDA")
   abline(0, 1, col="red") 
   
-  valuation.model <- list(train.ids=train.ids, train.x.na = train.x.na,
-                          train.x=train.x, train.y=train.y, train.y.cv = yhat1,
-                          test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
-  valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
+  valuation.model <- list(train.ids=train.data$ids, train.x = train.data$data,
+                          train.y=train.data$target, train.y.cv = yhat1,
+                          test.ids=test.data$ids, test.x = test.data$data,
+                          test.y=test.data$target)  
   
-  
-  model <- train.industry.multiple(train.data, train.data$target, "EBITDA")
+  valuation.model$model <- train.industry.multiple(train.data, train.data$target, "EBITDA")
+  class(valuation.model) <- "industry.multiple"
+  valuation.model
 }
 
 
@@ -36,7 +63,10 @@ train.industry.multiple <- function(train.data, train.target, base){
   model
 }
 
-predict.industry.multiple.df <- function(model, newdata){
+predict.industry.multiple.df <- function(model, newdata, get.neigbors=FALSE){
+  
+  if(nrow(newdata) > 1) get.neighbors<-FALSE
+  
   yhat <- rep(NA, nrow(newdata))
   base <- model$base
   newdata.base <- newdata[[base]]
@@ -54,14 +84,24 @@ predict.industry.multiple.df <- function(model, newdata){
       yhat[i] <- mean(multiple[inds]) * newdata.base[i]
     }
     else
-      yhat[i] <- NA
-    
+      yhat[i] <- NA   
   }
-  yhat
+  ret <- ifelse(get.neighbors, list(yhat=yhat, neighbor.ids=which(inds)), yhat)
 }
 
 predict.industry.multiple <- function(model, test.index){
+  test.id <- model$test.ids[test.index]
+  tmp.logi <- rep(FALSE, nrow(model$test.x))
+  tmp.logi[test.index] <- TRUE
+  test.feature.vector <- subset(model$test.x, tmp.logi)
+  ret <- predict(model$model, test.feature.vector, get.neigbors = TRUE)
   
+  return(list(value = model$test.y[test.index], mean.prediction=ret$yhat,
+              median.prediction=NA, range.5.95=NA,
+              neighbor.ids = ret$neighbor.ids, neighbor.similarities=rep(1, length(ret$neighbor.ids)),
+              neighbor.features = model$train.x[ret$neighbor.ids,],
+              neighbor.values=model$train.y[ret$neighbor.ids], 
+              neighbor.predictions=model$train.y.cv[ret$neighbor.ids]))
 }
 
 
@@ -69,8 +109,8 @@ train.using.random.forest <- function(train.data, test.data){
   train.ids <- train.data$ids
   test.ids <- test.data$ids
   
-  train.x.na <- train.data$data
-  test.x.na <- test.data$data
+  train.x.na <- train.data$data[,-1]
+  test.x.na <- test.data$data[,-1]
   
   n.train <- nrow(train.x.na)
   n.test <-  nrow(test.x.na)
@@ -85,15 +125,13 @@ train.using.random.forest <- function(train.data, test.data){
   train.x <- x.filled[1:n.train,-1]
   test.x <- x.filled[(n.train+1):nrow(x.filled),-1]
   
-  yhat1 <- crossvalidate(train.x, train.y, num.folds = 5, train.fun=randomForest, ntree=50, mtry=5)
-  yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=100, mtry=5))-1
+  #yhat1 <- crossvalidate(train.x, train.y, num.folds = 5, train.fun=myQuantregForest, ntree=50, mtry=5)
+  #print(paste("rmse = ", rmse(train.y, yhat1), ", MAPE = ", mape(train.y+1, yhat1)))   
+  #plot(train.y, yhat1, log="xy", main="no transformation")
+  #abline(0, 1, col="red")
   
-  print(paste("rmse = ", rmse(train.y, yhat1), ", MAPE = ", mape(train.y+1, yhat1)))
-  print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))
-  
-  plot(train.y, yhat1, log="xy", main="no transformation")
-  abline(0, 1, col="red")
-  
+  yhat2 <- exp(crossvalidate(train.x, log(train.y+10), num.folds = 5, train.fun=myQuantregForest, ntree=100, mtry=5))-10
+  print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))  
   plot(train.y, yhat2, log="xy", main="target log transformed")
   abline(0, 1, col="blue")
   
@@ -102,8 +140,7 @@ train.using.random.forest <- function(train.data, test.data){
                           test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
   valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
   class(valuation.model) <- "rf.no.industry.group"
-  valuation.model
-  
+  valuation.model 
 }
 
 
@@ -145,7 +182,17 @@ predict.rf.no.industry.group <- function(model, test.index){
 }
 
 
+myQuantregForest <- function(X, y, ...){
+  model <- list()
+  model$qrf <- quantregForest(X, y, ...)
+  class(model) <- "my.qrf"
+  model
+}
 
+predict.my.qrf <- function(model, newdata){
+  yhat <- predict(model$qrf, newdata, quantiles=0.5)
+  yhat
+}
 
 
 my.table <- function(vec){
