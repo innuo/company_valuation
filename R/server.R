@@ -13,7 +13,7 @@ shinyServer(
       id <- input$id
       test.index <- which(test.data$ids == id)
       
-      result <- predict.valuation(model, test.index)
+      result <- predict(model, test.index)
       
       dat <- cbind.data.frame(Name=result$neighbor.ids, 
                               Similarity = result$neighbor.similarities,

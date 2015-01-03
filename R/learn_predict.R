@@ -1,9 +1,74 @@
 library(randomForest)
 
-learn.model <- function(train.data, test.data){
+learn.model <- function(train.data, test.data, train.fun, model.name){
+  model <- train.fun(train.data, test.data)
+  saveRDS(model, paste0("data/", model.name, ".Rdata"))
+
+}
+
+train.industry.rev.multiple <- function(train.data, test.data){
+  model <- train.industry.multiple(train.data, train.targets, "Revenues")
+}
+
+train.industry.ebitda.multiple <- function(train.data, test.data){
+  yhat1 <- crossvalidate(train.data$data, train.data$target, num.folds = 5, 
+                         train.fun=train.industry.multiple, predict.fun=predict.industry.multiple.df,
+                         base="EBITDA")
+  print(paste("rmse = ", rmse(train.data$target, yhat1), ", MAPE = ", mape(train.data$target+1, yhat1)))
+  plot(train.data$target, yhat1, log="xy", main="Multiple of EBITDA")
+  abline(0, 1, col="red") 
+  
+  valuation.model <- list(train.ids=train.ids, train.x.na = train.x.na,
+                          train.x=train.x, train.y=train.y, train.y.cv = yhat1,
+                          test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
+  valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
+  
+  
+  model <- train.industry.multiple(train.data, train.data$target, "EBITDA")
+}
+
+
+train.industry.multiple <- function(train.data, train.target, base){
+  
+  model <- list(train.data=train.data, train.target =train.target, base=base)
+  class(model) <- "industry.multiple" 
+  print(paste(base, "Industry multiple model trained"))
+  model
+}
+
+predict.industry.multiple.df <- function(model, newdata){
+  yhat <- rep(NA, nrow(newdata))
+  base <- model$base
+  newdata.base <- newdata[[base]]
+  train.data.base <- model$train.data[[base]]
+  train.industry.group <- model$train.data$Industry.Group
+  newdata.industry.group <- newdata$Industry.Group
+  
+  multiple <- model$train.target / model$train.data[[base]]
+  
+  for(i in 1:nrow(newdata)){
+    inds <- train.industry.group == newdata.industry.group[i]
+    inds <- inds &  - (abs(train.data.base - newdata.base[i])/(newdata.base[i]+0.01) < 0.5)
+    inds <- inds & train.data.base > 0
+    if(any(inds)){
+      yhat[i] <- mean(multiple[inds]) * newdata.base[i]
+    }
+    else
+      yhat[i] <- NA
+    
+  }
+  yhat
+}
+
+predict.industry.multiple <- function(model, test.index){
+  
+}
+
+
+train.using.random.forest <- function(train.data, test.data){
   train.ids <- train.data$ids
   test.ids <- test.data$ids
-
+  
   train.x.na <- train.data$data
   test.x.na <- test.data$data
   
@@ -16,7 +81,7 @@ learn.model <- function(train.data, test.data){
   test.y <- test.data$target
   
   x.filled <- rfImpute(rbind(train.x.na, test.x.na), c(train.y, test.y), iter=2, ntree=10) #impute missing
-    
+  
   train.x <- x.filled[1:n.train,-1]
   test.x <- x.filled[(n.train+1):nrow(x.filled),-1]
   
@@ -36,11 +101,13 @@ learn.model <- function(train.data, test.data){
                           train.x=train.x, train.y=train.y, train.y.cv = yhat2,
                           test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
   valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
+  class(valuation.model) <- "rf.no.industry.group"
   valuation.model
- 
+  
 }
 
-predict.valuation <- function(model, test.index){
+
+predict.rf.no.industry.group <- function(model, test.index){
   test.id <- model$test.ids[test.index]
   test.feature.vector <- model$test.x[test.index,]
   pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE)
@@ -74,10 +141,7 @@ predict.valuation <- function(model, test.index){
               neighbor.features = model$train.x[neighbor.df$ids,],
               neighbor.features.na = model$train.x[neighbor.df$ids,],
               neighbor.values=model$train.y[neighbor.df$ids], 
-              neighbor.predictions=model$train.y.cv[neighbor.df$ids])) 
-          
-  
-  
+              neighbor.predictions=model$train.y.cv[neighbor.df$ids]))   
 }
 
 
