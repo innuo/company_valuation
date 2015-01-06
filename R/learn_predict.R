@@ -6,7 +6,7 @@ train.all.models <- function(){
   test.data <-  readRDS("data/company_test_data.Rdata")
   learn.model(train.data, test.data, train.industry.ebitda.multiple, "model_ebidta")
   learn.model(train.data, test.data, train.industry.rev.multiple, "model_revenues")
-  #learn.model(train.data, test.data, train.using.random.forest, "model_rf")
+  learn.model(train.data, test.data, train.using.random.forest, "model_rf")
   
 }
 

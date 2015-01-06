@@ -22,7 +22,7 @@ shinyServer(
       
       result <- predict(model, test.index)
       
-      if(result$)
+    #  if(result$)
       
       dat <- cbind.data.frame(Name=result$neighbor.ids, 
                               Similarity = result$neighbor.similarities,
