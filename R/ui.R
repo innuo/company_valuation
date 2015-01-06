@@ -1,14 +1,17 @@
 library(shiny)
-
 test.data <- readRDS("../data/company_test_data.Rdata")
-model <- readRDS("../data//company_valuation_model.Rdata")
+model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)")
 
 
 shinyUI(fluidPage(
-  titlePanel("Company Valuation Demo"),
+  titlePanel("Beyond Compare: Company Valuation Demo"),
   sidebarLayout(sidebarPanel(
     selectizeInput(
       'id', 'Test Company', choices = test.data$ids, multiple = FALSE
+    ),
+    selectizeInput(
+      'model.id', 'Model',
+      choices = model.choices
     )),
     mainPanel(
       textOutput("text1"),

@@ -1,11 +1,15 @@
 library(shiny)
 source("learn_predict.R")
 
+models <- list(readRDS("../data/model_ebidta.Rdata"), readRDS("../data/model_revenues.Rdata"),
+            readRDS("../data/model_rf.Rdata"))
+test.data <- readRDS("../data/company_test_data.Rdata")
+model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)")
+
+
 shinyServer(
   function(input, output) {
-    
-     
-    output$text1 <- renderText({ 
+     output$text1 <- renderText({ 
       paste("You have selected", input$id)
     })
     
@@ -13,7 +17,12 @@ shinyServer(
       id <- input$id
       test.index <- which(test.data$ids == id)
       
+      model.id <- input$model.id
+      model <- models[[which(model.choices == model.id)]]
+      
       result <- predict(model, test.index)
+      
+      if(result$)
       
       dat <- cbind.data.frame(Name=result$neighbor.ids, 
                               Similarity = result$neighbor.similarities,

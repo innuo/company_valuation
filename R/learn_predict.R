@@ -105,7 +105,7 @@ predict.industry.multiple <- function(model, test.index){
   return(list(test.id = model$test.ids[test.index],value = model$test.y[test.index], mean.prediction=ret$yhat,
               median.prediction=NA, range.5.95=NA,
               neighbor.ids = model$train.ids[ret$neighbor.ids], neighbor.similarities=rep(1, length(ret$neighbor.ids)),
-              neighbor.features = model$train.x[ret$neighbor.ids,],
+              neighbor.features.na = model$train.x[ret$neighbor.ids,],
               neighbor.values=model$train.y[ret$neighbor.ids], 
               neighbor.predictions=model$train.y.cv[ret$neighbor.ids]))
 }
