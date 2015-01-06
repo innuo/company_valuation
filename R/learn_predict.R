@@ -6,7 +6,7 @@ train.all.models <- function(){
   test.data <-  readRDS("data/company_test_data.Rdata")
   learn.model(train.data, test.data, train.industry.ebitda.multiple, "model_ebidta")
   learn.model(train.data, test.data, train.industry.rev.multiple, "model_revenues")
-  learn.model(train.data, test.data, train.using.random.forest, "model_rf")
+  #learn.model(train.data, test.data, train.using.random.forest, "model_rf")
   
 }
 
@@ -31,7 +31,7 @@ train.industry.rev.multiple <- function(train.data, test.data){
                           test.ids=test.data$ids, test.x = test.data$data,
                           test.y=test.data$target)  
   
-  valuation.model$model <- train.industry.multiple(train.data, train.data$target, "Revenues")
+  valuation.model$model <- train.industry.multiple(train.data$data, train.data$target, "Revenues")
   class(valuation.model) <- "industry.multiple"
   valuation.model
 }
@@ -49,7 +49,7 @@ train.industry.ebitda.multiple <- function(train.data, test.data){
                           test.ids=test.data$ids, test.x = test.data$data,
                           test.y=test.data$target)  
   
-  valuation.model$model <- train.industry.multiple(train.data, train.data$target, "EBITDA")
+  valuation.model$model <- train.industry.multiple(train.data$data, train.data$target, "EBITDA")
   class(valuation.model) <- "industry.multiple"
   valuation.model
 }
@@ -58,12 +58,12 @@ train.industry.ebitda.multiple <- function(train.data, test.data){
 train.industry.multiple <- function(train.data, train.target, base){
   
   model <- list(train.data=train.data, train.target =train.target, base=base)
-  class(model) <- "industry.multiple" 
+  class(model) <- "industry.multiple.df" 
   print(paste(base, "Industry multiple model trained"))
   model
 }
 
-predict.industry.multiple.df <- function(model, newdata, get.neigbors=FALSE){
+predict.industry.multiple.df <- function(model, newdata, get.neighbors=FALSE){
   
   if(nrow(newdata) > 1) get.neighbors<-FALSE
   
@@ -86,7 +86,13 @@ predict.industry.multiple.df <- function(model, newdata, get.neigbors=FALSE){
     else
       yhat[i] <- NA   
   }
-  ret <- ifelse(get.neighbors, list(yhat=yhat, neighbor.ids=which(inds)), yhat)
+  ret <- yhat
+  ret <- if(get.neighbors)
+            list(yhat=yhat, neighbor.ids=which(inds))
+         else
+            yhat
+  
+  ret
 }
 
 predict.industry.multiple <- function(model, test.index){
@@ -94,11 +100,11 @@ predict.industry.multiple <- function(model, test.index){
   tmp.logi <- rep(FALSE, nrow(model$test.x))
   tmp.logi[test.index] <- TRUE
   test.feature.vector <- subset(model$test.x, tmp.logi)
-  ret <- predict(model$model, test.feature.vector, get.neigbors = TRUE)
+  ret <- predict.industry.multiple.df(model$model, test.feature.vector, get.neighbors = TRUE)
   
-  return(list(value = model$test.y[test.index], mean.prediction=ret$yhat,
+  return(list(test.id = model$test.ids[test.index],value = model$test.y[test.index], mean.prediction=ret$yhat,
               median.prediction=NA, range.5.95=NA,
-              neighbor.ids = ret$neighbor.ids, neighbor.similarities=rep(1, length(ret$neighbor.ids)),
+              neighbor.ids = model$train.ids[ret$neighbor.ids], neighbor.similarities=rep(1, length(ret$neighbor.ids)),
               neighbor.features = model$train.x[ret$neighbor.ids,],
               neighbor.values=model$train.y[ret$neighbor.ids], 
               neighbor.predictions=model$train.y.cv[ret$neighbor.ids]))
@@ -172,7 +178,7 @@ predict.rf.no.industry.group <- function(model, test.index){
   neighbor.ids <- model$train.ids[neighbor.df$ids]
   neighbor.similarities <-  neighbor.df$freq/ncol(nodes)
   
-  return(list(value = model$test.y[test.index], mean.prediction=mean.prediction,
+  return(list(test.id = model$test.ids[test.index],value = model$test.y[test.index], mean.prediction=mean.prediction,
               median.prediction=median.prediction, range.5.95=range.5.95,
               neighbor.ids = neighbor.ids, neighbor.similarities=neighbor.similarities,
               neighbor.features = model$train.x[neighbor.df$ids,],
