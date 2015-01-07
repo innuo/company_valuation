@@ -144,8 +144,11 @@ train.using.random.forest <- function(train.data, test.data){
   valuation.model <- list(train.ids=train.ids, train.x.na = train.x.na,
                           train.x=train.x, train.y=train.y, train.y.cv = yhat2,
                           test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
-  valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
-  class(valuation.model) <- "rf.no.industry.group"
+  # valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
+  valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=500, mtry=5, proximity=TRUE)
+  # Changes discussed with Harsha on Jan 6 for cluster analysis
+  # This will now contain pairwise proximity matrix of all training samples which can be run through fast cluster
+  class(valuation.model) <- "rf.no.industry.group" 
   valuation.model 
 }
 

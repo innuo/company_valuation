@@ -1,0 +1,83 @@
+---
+title       : BeyondCompare
+subtitle    : Metolabs tool for valuation professionals
+author      : Kripa R, Harsha V
+date: "January 7, 2015"
+output: ioslides_presentation
+runtime: shiny
+---
+
+## Background
+
+* Company valuation estimates are decreasingly correlated with available financial metrics. 
+* While discounted cashflow modelling is relied on as the gold-standard, practical constraints drive an unacknowledged reliance on relative valuation models and techniques. 
+* Most techniques lack statistical rigor and rely heavily on “expertise”
+    * [Damodaran](http://people.stern.nyu.edu/adamodar/pdfiles/papers/valuesurvey.pdf)
+    * [McKinsey](http://www.mckinsey.com/insights/corporate_finance/the_right_role_for_multiples_in_valuation)
+
+## Performance of relative valuation techniques
+
+```{r, echo=FALSE}
+
+  makeErrorVector <- function(model) {
+  # Expects columns of the same length between which a relative error normalized to y is calculated
+  
+  # Create calc matrix
+  m <- cbind(model$train.y, model$train.y.cv)
+  mClean <- na.omit(m)
+  
+  # Create normalized 
+  errVectorNormalized <- (mClean[,1]-mClean[,2])/mClean[,1]
+  errVectorNormalized[is.finite(errVectorNormalized)]
+  }
+
+models <- list(readRDS("../data/model_ebidta.Rdata"), readRDS("../data/model_revenues.Rdata"), readRDS("../data/model_rf.Rdata"))
+model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)")
+        
+inputPanel(
+  selectInput("model.type", label = "Relative valuation using:",
+              choices = c("Multiple of EBIDTA", "Multiple of Revenue", 
+              "Statistical (no industry group)"), selected = "Multiple of EBIDTA"),
+  
+#  selectInput("industry.group", label = "Industry:",
+#              choices = c("Technology", "Retail", "All market"), selected = "All market")
+  
+  selectInput("n_breaks", label = "Number of bins:",
+              choices = c(10, 20, 35, 50, 100, 200), selected = 20),
+  
+   sliderInput("bw_adjust", label = "Bandwidth adjustment:",
+               min = 0.2, max = 2, value = 1, step = 0.2)
+)
+
+renderPlot({
+  
+  model.id <- input$model.type
+  model <- models[[which(model.choices == model.id)]]
+  errorVector <- makeErrorVector(model)
+  
+  hist(errorVector, probability = TRUE, 
+       breaks = as.numeric(input$n_breaks),
+       xlab = "Relative error (Actual-Est)/Actual", 
+       main = "Estimation error distribution")
+  
+   dens <- density(errorVector, adjust = input$bw_adjust)
+   lines(dens, col = "blue")
+})
+```
+
+
+## BeyondCompare brings statistical inference at scale to valuation professionals
+
+* Investment professionals could use a tool that leverages massive data inference to bring unprecedented rigor and reproducibility to their methodology and estimates.
+
+* Metolabs’ BeyondCompare tool offers a convenient way to bring a more statistically grounded perspective into the valuation processes of today. 
+
+
+
+## Statistical rigor with more coverage and prediction accuracy
+
+* Initial tests show significant expansion of coverage when faced with missing values
+* Substantial reduction in prediction error in comparison to baseline relative valuation approaches (Median errors on 6000+ companies using 2014 data)
+    * Rev multiples 30% (Applicable to 64% of companies)
+    * Ebitda multiples 40% (Applicable to 57% of companies)
+    * BeyondCompare 2% (Applicable to 98% of companies)
