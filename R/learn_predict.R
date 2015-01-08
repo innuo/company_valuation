@@ -6,7 +6,7 @@ train.all.models <- function(){
   test.data <-  readRDS("data/company_test_data.Rdata")
   learn.model(train.data, test.data, train.industry.ebitda.multiple, "model_ebidta")
   learn.model(train.data, test.data, train.industry.rev.multiple, "model_revenues")
-  learn.model(train.data, test.data, train.using.random.forest, "model_rf")
+  learn.model(train.data, test.data, train.using.random.forest.no.industry.group, "model_rf")
   
 }
 
@@ -111,7 +111,7 @@ predict.industry.multiple <- function(model, test.index){
 }
 
 
-train.using.random.forest <- function(train.data, test.data){
+train.using.random.forest.no.industry.group <- function(train.data, test.data){
   train.ids <- train.data$ids
   test.ids <- test.data$ids
   
@@ -136,7 +136,7 @@ train.using.random.forest <- function(train.data, test.data){
   #plot(train.y, yhat1, log="xy", main="no transformation")
   #abline(0, 1, col="red")
   
-  yhat2 <- exp(crossvalidate(train.x, log(train.y+10), num.folds = 5, train.fun=myQuantregForest, ntree=100, mtry=5))-10
+  yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=100, mtry=5))-1
   print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))  
   plot(train.y, yhat2, log="xy", main="target log transformed")
   abline(0, 1, col="blue")
@@ -148,12 +148,55 @@ train.using.random.forest <- function(train.data, test.data){
   valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=500, mtry=5, proximity=TRUE)
   # Changes discussed with Harsha on Jan 6 for cluster analysis
   # This will now contain pairwise proximity matrix of all training samples which can be run through fast cluster
-  class(valuation.model) <- "rf.no.industry.group" 
+  class(valuation.model) <- "rf.log.target" 
   valuation.model 
 }
 
 
-predict.rf.no.industry.group <- function(model, test.index){
+train.using.random.forest.with.industry.group <- function(train.data, test.data){
+  IG.levels<- sort(unique(c(train.data$data$Industry.Group, test.data$data$Industry.Group)))
+  
+  test.ids <- test.data$ids
+  
+  train.x.na <- train.data$data[,-1]
+  test.x.na <- test.data$data[,-1]
+  
+  n.train <- nrow(train.x.na)
+  n.test <-  nrow(test.x.na)
+  
+  c.train <- ncol(train.x.na)
+  
+  train.y <- train.data$target
+  test.y <- test.data$target
+  
+  x.filled <- rfImpute(rbind(train.x.na, test.x.na), c(train.y, test.y), iter=2, ntree=10) #impute missing
+    
+  train.x <- cbind.data.frame(Industry.Group = factor(train.data$data$Industry.Group, levels=IG.levels), 
+                              x.filled[1:n.train,-1])
+  test.x <- cbind.data.frame(Industry.Group = factor(test.data$data$Industry.Group, levels=IG.levels), 
+                              x.filled[(n.train+1):nrow(x.filled),-1])
+  train.x.na <- train.data$data; train.x.na$Industry.Group <- factor(train.x.na$Industry.Group, levels=IG.levels)
+  test.x.na <- test.data$data; test.x.na$Industry.Group <- factor(test.x.na$Industry.Group, levels=IG.levels)
+  
+  browser()
+  yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=100, mtry=5))-1
+  print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))  
+  plot(train.y, yhat2, log="xy", main="target log transformed")
+  abline(0, 1, col="blue")
+  
+  valuation.model <- list(train.ids=train.ids, train.x.na = train.x.na,
+                          train.x=train.x, train.y=train.y, train.y.cv = yhat2,
+                          test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
+  # valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=100, mtry=5)
+  valuation.model$rf.model <- randomForest(train.x, log(train.y+1), ntree=500, mtry=5, proximity=TRUE)
+  # Changes discussed with Harsha on Jan 6 for cluster analysis
+  # This will now contain pairwise proximity matrix of all training samples which can be run through fast cluster
+  class(valuation.model) <- "rf.log.target" 
+  valuation.model 
+}
+
+
+predict.rf.log.target <- function(model, test.index){
   test.id <- model$test.ids[test.index]
   test.feature.vector <- model$test.x[test.index,]
   pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE)
