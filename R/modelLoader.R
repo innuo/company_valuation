@@ -1,8 +1,29 @@
 # Load models and allow for manual plotting of performance charts
 # run from R folder that is peer to data folder
 
-# models <- list(readRDS("../data/model_ebidta.Rdata"), readRDS("../data/model_revenues.Rdata"),
-#                readRDS("../data/model_rf.Rdata"))
+makeErrorVector <- function(model) {
+  # Expects columns of the same length between which a relative error normalized to y is calculated
+  
+  # Create calc matrix
+  m <- cbind(model$train.y, model$train.y.cv)
+  mClean <- na.omit(m)
+  
+  # Create normalized 
+  errVectorNormalized <- (mClean[,1]-mClean[,2])/mClean[,1]
+  abs(errVectorNormalized[is.finite(errVectorNormalized)])
+}
+
+myHist <- function(errorVector, nbreaks)  {
+  hist(errorVector, probability = TRUE, 
+       breaks = nbreaks,
+       xlab = "Relative error (Actual-Est)/Actual", 
+       main = "Estimation error distribution")
+}
+
+dv <- function(model) model$train.y - model$train.y.cv
+
+models <- list(readRDS("../data/model_ebidta.Rdata"), readRDS("../data/model_revenues.Rdata"),
+                readRDS("../data/model_rf.Rdata"))
 model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)")
 
 model.id <- "Multiple of EBIDTA"
@@ -19,7 +40,7 @@ rfError <- makeErrorVector(rfstatsModel)
 
 errorSummary <- lapply( list(revError, ebitdaError, rfError), summary)
 
-errorMatrix <- cbind("company"=ebitdaModel$train.ids,
+errorMatrix <- data.frame("company"=ebitdaModel$train.ids,
                      "value"=ebitdaModel$train.y, 
                      "ebitdaPredError"=dv(ebitdaModel), 
                      "revPredError"=dv(revenueModel), 
@@ -30,24 +51,6 @@ errorMatrix <- cbind("company"=ebitdaModel$train.ids,
 
 errorMatrixclean <- na.omit(errorMatrix)
   
-dv <- function(model) model$train.y - model$train.y.cv
 
 
-makeErrorVector <- function(model) {
-  # Expects columns of the same length between which a relative error normalized to y is calculated
-  
-  # Create calc matrix
-  m <- cbind(model$train.y, model$train.y.cv)
-  mClean <- na.omit(m)
-  
-  # Create normalized 
-  errVectorNormalized <- (mClean[,1]-mClean[,2])/mClean[,1]
-  errVectorNormalized[is.finite(errVectorNormalized)]
-}
 
-myHist <- function(errorVector, nbreaks)  {
-  hist(errorVector, probability = TRUE, 
-       breaks = nbreaks,
-        xlab = "Relative error (Actual-Est)/Actual", 
-        main = "Estimation error distribution")
-}
