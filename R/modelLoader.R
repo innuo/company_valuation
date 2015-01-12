@@ -23,8 +23,9 @@ myHist <- function(errorVector, nbreaks)  {
 dv <- function(model) model$train.y - model$train.y.cv
 
 models <- list(readRDS("../data/model_ebidta.Rdata"), readRDS("../data/model_revenues.Rdata"),
-                readRDS("../data/model_rf.Rdata"))
-model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)")
+                readRDS("../data/model_rf.Rdata"), readRDS("../data/model_rf_industry.Rdata"))
+model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)",
+                   "Statistical (with industry group)")
 
 model.id <- "Multiple of EBIDTA"
 ebitdaModel <- models[[which(model.choices == model.id)]]

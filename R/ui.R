@@ -1,7 +1,8 @@
 require(shiny)
 require(rCharts)
+source("modelLoader.R")
+
 test.data <- readRDS("../data/company_test_data.Rdata")
-model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)")
 
 
 shinyUI(

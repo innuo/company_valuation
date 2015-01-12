@@ -7,6 +7,7 @@ train.all.models <- function(){
   learn.model(train.data, test.data, train.industry.ebitda.multiple, "model_ebidta")
   learn.model(train.data, test.data, train.industry.rev.multiple, "model_revenues")
   learn.model(train.data, test.data, train.using.random.forest.no.industry.group, "model_rf")
+  learn.model(train.data, test.data, train.using.random.forest.no.industry.group, "model_rf_industry")
   
 }
 
@@ -154,8 +155,14 @@ train.using.random.forest.no.industry.group <- function(train.data, test.data){
 
 
 train.using.random.forest.with.industry.group <- function(train.data, test.data){
+  
+  industry.clusters <- read.csv("R/newIndustryGroupMap.csv", stringsAsFactors=F)
+  
+  IC.levels <- sort(unique(industry.clusters$Group))
+  
   IG.levels<- sort(unique(c(train.data$data$Industry.Group, test.data$data$Industry.Group)))
   
+  train.ids <- train.data$ids
   test.ids <- test.data$ids
   
   train.x.na <- train.data$data[,-1]
@@ -170,20 +177,26 @@ train.using.random.forest.with.industry.group <- function(train.data, test.data)
   test.y <- test.data$target
   
   x.filled <- rfImpute(rbind(train.x.na, test.x.na), c(train.y, test.y), iter=2, ntree=10) #impute missing
-    
-  train.x <- cbind.data.frame(Industry.Group = factor(train.data$data$Industry.Group, levels=IG.levels), 
-                              x.filled[1:n.train,-1])
-  test.x <- cbind.data.frame(Industry.Group = factor(test.data$data$Industry.Group, levels=IG.levels), 
-                              x.filled[(n.train+1):nrow(x.filled),-1])
-  train.x.na <- train.data$data; train.x.na$Industry.Group <- factor(train.x.na$Industry.Group, levels=IG.levels)
-  test.x.na <- test.data$data; test.x.na$Industry.Group <- factor(test.x.na$Industry.Group, levels=IG.levels)
   
-  browser()
+  train.x <- cbind.data.frame(Industry.Group = 
+                                factor(map.ig.ic(train.data$data$Industry.Group, industry.clusters), levels=IC.levels), 
+                              x.filled[1:n.train,-1])
+  test.x <- cbind.data.frame(Industry.Group = 
+                               factor(map.ig.ic(test.data$data$Industry.Group, industry.clusters), levels=IC.levels), 
+                              x.filled[(n.train+1):nrow(x.filled),-1])
+  
+  
+  train.x.na <- train.data$data; 
+  train.x.na <- cbind.data.frame(Industry.Group = factor(train.x.na$Industry.Group, levels=IG.levels),
+                                 train.x.na)
+  test.x.na <- test.data$data; 
+  test.x.na <- cbind.data.frame(Industry.Group = factor(test.x.na$Industry.Group, levels=IG.levels),
+                                test.x.na)
+  
   yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=100, mtry=5))-1
   print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))  
   plot(train.y, yhat2, log="xy", main="target log transformed")
   abline(0, 1, col="blue")
-  
   valuation.model <- list(train.ids=train.ids, train.x.na = train.x.na,
                           train.x=train.x, train.y=train.y, train.y.cv = yhat2,
                           test.ids=test.ids, test.x.na = test.x.na, test.x=test.x, test.y=test.y)
@@ -199,7 +212,13 @@ train.using.random.forest.with.industry.group <- function(train.data, test.data)
 predict.rf.log.target <- function(model, test.index){
   test.id <- model$test.ids[test.index]
   test.feature.vector <- model$test.x[test.index,]
-  pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE)
+  if(is.data.frame(model$test.x)){
+    pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE)
+  }
+  else{
+    pp <- predict(model$rf.model, rbind.data.frame(test.feature.vector, model$train.x), nodes=TRUE)
+    
+  }
   #pp <- predict(model$rf.model, rbind(test.feature.vector, model$train.x), nodes=TRUE, predict.all=T)
   nodes <- attr(pp, "nodes")
   test.nodes <-  nodes[1,]
@@ -228,7 +247,7 @@ predict.rf.log.target <- function(model, test.index){
               median.prediction=median.prediction, range.5.95=range.5.95,
               neighbor.ids = neighbor.ids, neighbor.similarities=neighbor.similarities,
               neighbor.features = model$train.x[neighbor.df$ids,],
-              neighbor.features.na = model$train.x[neighbor.df$ids,],
+              neighbor.features.na = model$train.x.na[neighbor.df$ids,],
               neighbor.values=model$train.y[neighbor.df$ids], 
               neighbor.predictions=model$train.y.cv[neighbor.df$ids]))   
 }
@@ -276,3 +295,9 @@ mape <- function(y, yhat){
   mean(abs(y - yhat)/y, na.rm=T)
 }
 
+map.ig.ic <- function(char.vec, map.df){
+  dd <- merge(data.frame(orig=char.vec), map.df, by.x="orig", by.y="Industry", sort=F, all.x=T, all.y=F)
+  ii <- match(char.vec, dd$orig)
+  return(dd$Group[ii])
+  
+}

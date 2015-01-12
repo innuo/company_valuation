@@ -1,11 +1,10 @@
 require(shiny)
 require(rCharts)
 source("learn_predict.R")
+source("modelLoader.R")
 
-models <- list(readRDS("../data/model_ebidta.Rdata"), readRDS("../data/model_revenues.Rdata"),
-            readRDS("../data/model_rf.Rdata"))
 test.data <- readRDS("../data/company_test_data.Rdata")
-model.choices <- c("Multiple of EBIDTA", "Multiple of Revenue", "Statistical (no industry group)")
+
 
 
 shinyServer(
