@@ -52,6 +52,22 @@ errorMatrix <- data.frame("company"=ebitdaModel$train.ids,
 
 errorMatrixclean <- na.omit(errorMatrix)
   
-
+make.model.error.df <- function(){
+  
+  df <- NULL
+  for(i in 1:length(models)){
+    m <- models[[i]]
+    error <- abs(m$train.y-m$train.y.cv)/(m$train.y+0.01) * 100
+    
+    if(is.null(df)){
+      df <- data.frame(Model=model.choices[i], PercentageError=error)
+    }
+    else{
+      df <- rbind(df, data.frame(Model=model.choices[i], PercentageError=error))
+    }
+    
+  }
+  df
+}
 
 

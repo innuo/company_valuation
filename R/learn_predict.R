@@ -7,7 +7,7 @@ train.all.models <- function(){
   learn.model(train.data, test.data, train.industry.ebitda.multiple, "model_ebidta")
   learn.model(train.data, test.data, train.industry.rev.multiple, "model_revenues")
   learn.model(train.data, test.data, train.using.random.forest.no.industry.group, "model_rf")
-  learn.model(train.data, test.data, train.using.random.forest.no.industry.group, "model_rf_industry")
+  learn.model(train.data, test.data, train.using.random.forest.with.industry.group, "model_rf_industry")
   
 }
 
@@ -187,11 +187,7 @@ train.using.random.forest.with.industry.group <- function(train.data, test.data)
   
   
   train.x.na <- train.data$data; 
-  train.x.na <- cbind.data.frame(Industry.Group = factor(train.x.na$Industry.Group, levels=IG.levels),
-                                 train.x.na)
   test.x.na <- test.data$data; 
-  test.x.na <- cbind.data.frame(Industry.Group = factor(test.x.na$Industry.Group, levels=IG.levels),
-                                test.x.na)
   
   yhat2 <- exp(crossvalidate(train.x, log(train.y+1), num.folds = 5, train.fun=randomForest, ntree=100, mtry=5))-1
   print(paste("rmse = ", rmse(train.y, yhat2), ", MAPE = ", mape(train.y+1, yhat2)))  

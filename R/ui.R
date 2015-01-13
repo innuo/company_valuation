@@ -21,6 +21,7 @@ shinyUI(
     
     mainPanel(
       tabsetPanel(
+        tabPanel("Error Plot", plotOutput("errorPlot")), 
         tabPanel("Input", tableOutput("table_test")), 
         tabPanel("Valuation", textOutput("text1")), 
         tabPanel("Comps", showOutput("table", "datatables"))

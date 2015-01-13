@@ -1,5 +1,6 @@
 require(shiny)
 require(rCharts)
+require(ggplot2)
 source("learn_predict.R")
 source("modelLoader.R")
 
@@ -49,6 +50,14 @@ shinyServer(
         dat <- cbind.data.frame(Name=test.data$ids[test.index], test.data$data[test.index,])
         dat
       })
+      
+      output$errorPlot <- renderPlot({
+        df <- make.model.error.df()
+        ggplot(na.omit(df), aes(factor(Model), PercentageError)) +
+          geom_boxplot(aes(fill=factor(Model))) + 
+          coord_cartesian(ylim = c(0, 800))
+        })
+      
       
   }
 )
