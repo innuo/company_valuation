@@ -1,4 +1,5 @@
 require(shiny)
+require(d3Network)
 require(rCharts)
 source("modelLoader.R")
 
@@ -21,6 +22,7 @@ shinyUI(
     
     mainPanel(
       tabsetPanel(
+        tabPanel("Comp Graph", htmlOutput('networkPlot')),
         tabPanel("Error Plot", plotOutput("errorPlot")), 
         tabPanel("Input", tableOutput("table_test")), 
         tabPanel("Valuation", textOutput("text1")), 
