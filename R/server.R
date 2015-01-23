@@ -6,7 +6,7 @@ source("learn_predict.R")
 source("modelLoader.R")
 
 test.data <- readRDS("../data/company_test_data.Rdata")
-
+train.data <- readRDS("../data/company_train_data.Rdata")
 
 
 shinyServer(
@@ -60,31 +60,31 @@ shinyServer(
         })
       
       output$networkPlot <- renderPrint({
-        id <- input$id
-        test.index <- which(test.data$ids == id)
-        
-        model.id <- input$model.id
-        model <- models[[which(model.choices == model.id)]]
-        
-        result <- predict(model, test.index)
-        
-        neighbor.inds <- match(result$neighbor.ids, train.data$ids)
-        nodes <- data.frame(name=result$neighbor.ids, 
-                            group=train.data$data$Industry.Group[neighbor.inds],stringsAsFactors = FALSE)
-        nodes$ID <- 1:nrow(nodes)
-        
-        nodes <- rbind(nodes, data.frame(name=id, group=test.data$data$Industry.Group[test.index],ID = nrow(nodes)+1))
-        
-        links <- data.frame(source=nrow(nodes), target=1:(nrow(nodes)-1), value=result$neighbor.similarities)
-        
-        d3ForceNetwork(Nodes = nodes, 
-                       Links = links,  
-                       Source = "source", Target = "target", 
-                       Value = "value", NodeID = "name", 
-                       Group = "group", width = 400, height = 500, 
-                       opacity = 0.9, standAlone = FALSE,
-                       parentElement = '#networkPlot')
-      })
+           id <- input$id
+          test.index <- which(test.data$ids == id)
+          
+          model.id <- input$model.id
+          model <- models[[which(model.choices == model.id)]]
+          
+          result <- predict(model, test.index)
+          
+          neighbor.inds <- match(result$neighbor.ids, train.data$ids)
+          nodes <- data.frame(name=result$neighbor.ids, 
+                              group=train.data$data$Industry.Group[neighbor.inds],stringsAsFactors = FALSE)
+          nodes$ID <- 0:(nrow(nodes)-1)
+          
+          nodes <- rbind(nodes, data.frame(name=id, group=test.data$data$Industry.Group[test.index],ID = nrow(nodes)))
+          
+          links <- data.frame(source=nrow(nodes)-1, target=0:(nrow(nodes)-2), value=result$neighbor.similarities)
+          
+          d3ForceNetwork(Nodes = nodes, 
+                         Links = links,  
+                         Source = "source", Target = "target", 
+                         Value = "value", NodeID = "name", 
+                         Group = "group", width = 1200, height = 1200, 
+                         opacity = 0.7, standAlone = FALSE,
+                         parentElement = '#networkPlot')
+         })
       
   }
 )
